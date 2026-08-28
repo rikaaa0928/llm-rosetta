@@ -1,0 +1,18 @@
+services:
+  llm-rosetta-gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: llm-rosetta-gateway:local
+    container_name: llm-rosetta-gateway
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - ./config:/config
+    env_file:
+      - .env
+    environment:
+      - PUID=${PUID:-1001}
+      - PGID=${PGID:-1001}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}

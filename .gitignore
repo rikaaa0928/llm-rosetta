@@ -230,3 +230,16 @@ docs_zh/
 REVIEW_*
 TEMP_*
 tmp/
+
+# Runtime and local deployment
+.env
+.env.*
+config/
+/config/
+config.jsonc
+config.jsonc.*
+*.db
+*.db-*
+data/
+docker-compose.override.yml
+*.pid
