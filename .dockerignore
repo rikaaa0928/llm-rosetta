@@ -66,11 +66,8 @@ examples/
 
 # ── CI / misc ────────────────────────────────────────
 .github/
-*.md
-!docker/*.md
 LICENSE
 Makefile
-pyproject.toml
 .pre-commit-config.yaml
 .cursorignore
 .cursorindexingignore
