@@ -262,10 +262,11 @@ class OpenResponsesMessageOps(BaseMessageOps):
             passthrough_items = custom.get("_passthrough_items", [])
 
         content_parts: list[dict[str, Any]] = []
-        tool_items: list[dict[str, Any]] = []
-        reasoning_items: list[dict[str, Any]] = []
+        leading_reasoning_items: list[dict[str, Any]] = []
+        trailing_items: list[dict[str, Any]] = []
+        seen_tool_item = False
 
-        for part in content:
+        for idx, part in enumerate(content):
             if is_text_part(part):
                 # Check for passthrough content part (slug-prefixed)
                 pt_meta = (part.get("provider_metadata") or {}).get(
@@ -278,7 +279,8 @@ class OpenResponsesMessageOps(BaseMessageOps):
             elif is_citation_part(part):
                 self._attach_annotation(part, content_parts, warnings)
             elif is_tool_call_part(part):
-                tool_items.append(
+                seen_tool_item = True
+                trailing_items.append(
                     self.tool_ops.ir_tool_call_to_p(part, for_history=True)
                 )
             elif is_tool_result_part(part):
@@ -292,11 +294,18 @@ class OpenResponsesMessageOps(BaseMessageOps):
                     degraded_intrinsic_calls=degraded_intrinsic_calls,
                 )
                 if item:
-                    tool_items.append(item)
+                    seen_tool_item = True
+                    trailing_items.append(item)
             elif is_reasoning_part(part):
                 reasoning_item = self.content_ops.ir_reasoning_to_p(part)
                 if reasoning_item is not None:
-                    reasoning_items.append(reasoning_item)
+                    next_is_tool = idx + 1 < len(content) and is_tool_call_part(
+                        content[idx + 1]
+                    )
+                    if seen_tool_item or (content_parts and next_is_tool):
+                        trailing_items.append(reasoning_item)
+                    else:
+                        leading_reasoning_items.append(reasoning_item)
             else:
                 warnings.append(
                     f"Unsupported content part type in assistant message: "
@@ -305,8 +314,8 @@ class OpenResponsesMessageOps(BaseMessageOps):
 
         result_items: list[dict[str, Any]] = []
 
-        # Add reasoning items first (they come before the message)
-        result_items.extend(reasoning_items)
+        # Add leading reasoning items first (they come before the message)
+        result_items.extend(leading_reasoning_items)
 
         # Add assistant message if there are text content parts
         if content_parts:
@@ -324,8 +333,8 @@ class OpenResponsesMessageOps(BaseMessageOps):
                     msg_item["phase"] = phase
             result_items.append(msg_item)
 
-        # Add tool call items
-        result_items.extend(tool_items)
+        # Add tool call items and any interleaved/trailing reasoning items in order
+        result_items.extend(trailing_items)
 
         # Add slug-prefixed passthrough items verbatim
         result_items.extend(passthrough_items)
